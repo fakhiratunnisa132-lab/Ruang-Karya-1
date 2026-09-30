@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STEM Makerspace - Ruang Karya Virtual 3D</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Three.js Library & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            user-select: none;
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Styling Callout Marker UI */
+        .hotspot-card {
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+
+        .hotspot-card:hover {
+            transform: scale(1.04) translateY(-2px);
+        }
+
+        /* Leader Line Canvas Overlay */
+        #line-canvas {
+            pointer-events: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 15;
+        }
+
+        /* Modal Overlay Fade */
+        .modal-blur {
+            backdrop-filter: blur(4px);
+        }
+
+        /* Custom Scrollbar for Modal Content */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 h-screen w-screen relative overflow-hidden">
+
+    <!-- 3D VIEWPORT CANVAS AREA FULLSCREEN -->
+    <main class="w-full h-full relative bg-slate-200 overflow-hidden" id="viewport-container">
+        <!-- Three.js Canvas Container -->
+        <div id="three-canvas-container" class="w-full h-full"></div>
+
+        <!-- Canvas for Leader Lines -->
+        <canvas id="line-canvas"></canvas>
+
+        <!-- HOTSPOT ANNOTATION CALLOUTS (OVERLAY LAYER) -->
+        <div id="hotspot-overlay-container" class="absolute inset-0 pointer-events-none z-20 overflow-hidden">
+            
+            <!-- 1. Meja Eksperimen -->
+            <div id="hotspot-1" class="hotspot-card absolute pointer-events-auto bg-amber-400/95 text-slate-900 rounded-2xl p-3 w-56 border border-amber-300 shadow-xl transition-all duration-200">
+                <div class="flex items-center justify-between mb-1">
+                    <h4 class="font-bold text-sm tracking-tight text-slate-900">Meja Eksperimen</h4>
+                    <button onclick="openInfoModal('Meja Eksperimen')" class="w-5 h-5 bg-black text-white rounded-full flex items-center justify-center text-xs font-bold hover:scale-110 transition">i</button>
+                </div>
+                <ul class="text-xs space-y-0.5 font-medium text-slate-800 list-disc list-inside">
+                    <li>Pemindai Laser 3D</li>
+                    <li>Platform Fotogrametri</li>
+                </ul>
+            </div>
+
+            <!-- 2. Protokol K3 & Keselamatan -->
+            <div id="hotspot-2" class="hotspot-card absolute pointer-events-auto bg-amber-400/95 text-slate-900 rounded-2xl p-3 w-56 border border-amber-300 shadow-xl transition-all duration-200">
+                <div class="flex items-center justify-between mb-1">
+                    <h4 class="font-bold text-sm tracking-tight text-slate-900">Protokol K3 &amp; Keselamatan</h4>
+                    <button onclick="openInfoModal('Protokol K3 & Keselamatan')" class="w-5 h-5 bg-black text-white rounded-full flex items-center justify-center text-xs font-bold hover:scale-110 transition">i</button>
+                </div>
+                <p class="text-xs text-slate-800 font-medium leading-tight">APD lengkap, rompi keselamatan, helm kerja, &amp; APAR.</p>
+            </div>
+
+            <!-- 3. Area Kolaborasi -->
+            <div id="hotspot-3" class="hotspot-card absolute pointer-events-auto bg-amber-400/95 text-slate-900 rounded-2xl p-3 w-56 border border-amber-300 shadow-xl transition-all duration-200">
+                <div class="flex items-center justify-between mb-1">
+                    <h4 class="font-bold text-sm tracking-tight text-slate-900">Area Kolaborasi</h4>
+                    <button onclick="openInfoModal('Area Kolaborasi')" class="w-5 h-5 bg-black text-white rounded-full flex items-center justify-center text-xs font-bold hover:scale-110 transition">i</button>
+                </div>
+                <ul class="text-xs space-y-0.5 font-medium text-slate-800 list-disc list-inside">
+                    <li>Stasiun Desain CAD/VR</li>
+                    <li>Pusat Pemrograman &amp; IoT</li>
+                </ul>
+            </div>
+
+            <!-- 4. Fabrikasi Digital -->
+            <div id="hotspot-4" class="hotspot-card absolute pointer-events-auto bg-amber-400/95 text-slate-900 rounded-2xl p-3 w-56 border border-amber-300 shadow-xl transition-all duration-200">
+                <div class="flex items-center justify-between mb-1">
+                    <h4 class="font-bold text-sm tracking-tight text-slate-900">Fabrikasi Digital:</h4>
+                    <button onclick="openInfoModal('Fabrikasi Digital')" class="w-5 h-5 bg-black text-white rounded-full flex items-center justify-center text-xs font-bold hover:scale-110 transition">i</button>
+                </div>
+                <p class="text-xs text-slate-800 font-bold">Printer 3D &amp; CNC</p>
+            </div>
+
+            <!-- 5. Proyek IoT: Pertanian Pintar -->
+            <div id="hotspot-5" class="hotspot-card absolute pointer-events-auto bg-amber-400/95 text-slate-900 rounded-2xl p-3 w-56 border border-amber-300 shadow-xl transition-all duration-200">
+                <div class="flex items-center justify-between mb-1">
+                    <h4 class="font-bold text-sm tracking-tight text-slate-900">Proyek IoT:</h4>
+                    <button onclick="openInfoModal('Proyek IoT')" class="w-5 h-5 bg-black text-white rounded-full flex items-center justify-center text-xs font-bold hover:scale-110 transition">i</button>
+                </div>
+                <p class="text-xs text-slate-800 font-bold">Pertanian Pintar (Smart Farming)</p>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- INFORMATION MODAL DIALOG -->
+    <div id="info-modal" class="fixed inset-0 bg-slate-900/40 modal-blur z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl max-w-lg w-full mx-4 overflow-hidden shadow-2xl border border-slate-100 transform transition-all scale-95 duration-200" id="modal-card">
+            <!-- Modal Header -->
+            <div class="bg-slate-900 text-white p-5 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-amber-400 text-slate-900 rounded-xl flex items-center justify-center font-bold text-lg">
+                        <i id="modal-icon" class="fa-solid fa-microscope"></i>
+                    </div>
+                    <div>
+                        <h3 id="modal-title" class="font-bold text-lg text-white">Judul Modul</h3>
+                        <p class="text-xs text-slate-400">Laboratorium STEM &amp; Inovasi Digital</p>
+                    </div>
+                </div>
+                <button onclick="closeInfoModal()" class="w-8 h-8 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
+                <p id="modal-description" class="text-sm text-slate-600 leading-relaxed">
+                    Deskripsi detail mengenai modul laboratorium STEM ini.
+                </p>
+
+                <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/80 space-y-2">
+                    <h5 class="text-xs font-bold text-slate-700 uppercase tracking-wider">Perangkat &amp; Fitur Utama</h5>
+                    <ul id="modal-features" class="text-sm text-slate-600 space-y-1.5 list-disc list-inside">
+                        <!-- Dynamic items -->
+                    </ul>
+                </div>
+
+                <div class="border-t border-slate-100 pt-3 flex items-center justify-between text-xs text-slate-500">
+                    <span class="flex items-center gap-1"><i class="fa-solid fa-circle-check text-emerald-500"></i> Status: Siap Digunakan</span>
+                    <span class="font-mono bg-slate-100 px-2 py-0.5 rounded">ID: STEM-MKS-04</span>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="bg-slate-50 p-4 border-t border-slate-100 flex justify-end">
+                <button onclick="closeInfoModal()" class="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs rounded-xl transition">
+                    Tutup
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT THREE.JS SCENE LOGIC -->
+    <script>
+        let scene, camera, renderer, controls;
+        let lineCanvas, lineCtx;
+        const container = document.getElementById('three-canvas-container');
+
+        // 3D Target Hotspot Positions (X, Y, Z in world units)
+        const hotspots3D = [
+            { id: 'hotspot-1', pos: new THREE.Vector3(-4.8, 0.4, 1.2), label: 'Meja Eksperimen' },
+            { id: 'hotspot-2', pos: new THREE.Vector3(-1.8, 1.5, -3.2), label: 'Protokol K3 & Keselamatan' },
+            { id: 'hotspot-3', pos: new THREE.Vector3(1.5, 0.1, 1.2), label: 'Area Kolaborasi' },
+            { id: 'hotspot-4', pos: new THREE.Vector3(3.8, 1.6, -2.5), label: 'Fabrikasi Digital' },
+            { id: 'hotspot-5', pos: new THREE.Vector3(5.8, 0.6, 2.2), label: 'Proyek IoT' }
+        ];
+
+        // Detailed Modal Data
+        const modalContentData = {
+            'Meja Eksperimen': {
+                icon: 'fa-microscope',
+                desc: 'Stasiun eksperimen khusus pemindaian 3D dan fotogrametri presisi tinggi untuk rekayasa balik (reverse engineering) dan inspeksi kualitas objek fisik.',
+                features: [
+                    'Pemindai Laser 3D ganda dengan presisi sub-milimeter',
+                    'Platform Fotogrametri berputar otomatis (Turntable Stage)',
+                    'Mikroskop digital pembesaran 1000x untuk analisis material'
+                ]
+            },
+            'Protokol K3 & Keselamatan': {
+                icon: 'fa-shield-halved',
+                desc: 'Area perlengkapan Kesehatan dan Keselamatan Kerja (K3) standar industri laboratorium Makerspace untuk menjamin keamanan siswa selama beraktivitas.',
+                features: [
+                    'Rompi High-Visibility K3 dan Helm Keselamatan',
+                    'Alat Pemadam Api Ringan (APAR) & First Aid Kit',
+                    'Sistem Ventilasi Eksos untuk area percetakan 3D & solder'
+                ]
+            },
+            'Area Kolaborasi': {
+                icon: 'fa-laptop-code',
+                desc: 'Pusat diskusi tim dan pengembangan perangkat lunak, pemrograman mikrokontroler, serta simulasi lingkungan Virtual Reality (VR).',
+                features: [
+                    'Stasiun Desain CAD 3D & Headset Virtual Reality (VR)',
+                    'Pusat Pemrograman Mikrokontroler (Arduino, ESP32, Raspberry Pi)',
+                    'Monitor ganda pemantauan logika program & diagram sirkuit'
+                ]
+            },
+            'Fabrikasi Digital': {
+                icon: 'fa-print',
+                desc: 'Fasilitas manufaktur aditif dan subtraktif untuk merealisasikan desain 3D komputer menjadi prototipe fisik nyata.',
+                features: [
+                    'Printer 3D FDM & Resin kelas industri',
+                    'Mesin CNC Milling mini untuk pemotongan akrilik dan kayu',
+                    'Filamen ramah lingkungan PLA, PETG, dan ABS'
+                ]
+            },
+            'Proyek IoT': {
+                icon: 'fa-seedling',
+                desc: 'Sistem Pertanian Pintar (Smart Hydroponics) yang dikendalikan oleh sensor IoT untuk memantau pH air, nutrisi, dan pencahayaan otomatis.',
+                features: [
+                    'Rak Hidroponik Vertikal dengan Lampu Tumbuh LED Spektrum Spesial',
+                    'Sensor IoT Nutrisi PPM, pH, Kelembapan, dan Suhu Lingkungan',
+                    'Dashboard Pemantauan Otomatis berbasis Cloud'
+                ]
+            }
+        };
+
+        // Initialize Application
+        window.addEventListener('DOMContentLoaded', () => {
+            initThreeJS();
+            initLineCanvas();
+            animate();
+            window.addEventListener('resize', onWindowResize);
+        });
+
+        function initThreeJS() {
+            // 1. Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xeff4f8);
+            scene.fog = new THREE.FogExp2(0xeff4f8, 0.02);
+
+            // 2. Camera
+            camera = new THREE.PerspectiveCamera(42, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(0, 4.5, 11);
+
+            // 3. Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // 4. Orbit Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 - 0.02; // Prevent going below floor
+            controls.minDistance = 4;
+            controls.maxDistance = 18;
+            controls.target.set(0, 1.2, 0);
+
+            // 5. Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+            scene.add(ambientLight);
+
+            const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            mainLight.position.set(5, 12, 8);
+            mainLight.castShadow = true;
+            mainLight.shadow.mapSize.width = 2048;
+            mainLight.shadow.mapSize.height = 2048;
+            mainLight.shadow.bias = -0.0001;
+            scene.add(mainLight);
+
+            const fillLight = new THREE.DirectionalLight(0x90e0ef, 0.3);
+            fillLight.position.set(-8, 6, -5);
+            scene.add(fillLight);
+
+            // 6. Build Room Environment
+            buildRoom();
+        }
+
+        function buildRoom() {
+            // FLOOR WITH TILE GRID
+            const floorGeo = new THREE.PlaneGeometry(20, 14);
+            const floorMat = new THREE.MeshStandardMaterial({ 
+                color: 0xe2e8f0, 
+                roughness: 0.3,
+                metalness: 0.1 
+            });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // Floor Grid lines
+            const gridHelper = new THREE.GridHelper(20, 20, 0xcbd5e1, 0xe2e8f0);
+            gridHelper.position.y = 0.01;
+            scene.add(gridHelper);
+
+            // BACK WALL
+            const backWallGeo = new THREE.PlaneGeometry(20, 8);
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.8 });
+            const backWall = new THREE.Mesh(backWallGeo, wallMat);
+            backWall.position.set(0, 4, -7);
+            scene.add(backWall);
+
+            // LEFT WALL
+            const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(14, 8), wallMat);
+            leftWall.position.set(-10, 4, 0);
+            leftWall.rotation.y = Math.PI / 2;
+            scene.add(leftWall);
+
+            // --- 1. LEFT EXPERIMENT TABLE & EQUIPMENT ---
+            const deskMat = new THREE.MeshStandardMaterial({ color: 0xa87b51, roughness: 0.6 });
+            const deskLegMat = new THREE.MeshStandardMaterial({ color: 0x475569 });
+
+            // Desk 1 (Left)
+            createTable(-5, 0, 1, 4.5, 2, deskMat, deskLegMat);
+
+            // Whiteboard on left wall
+            createWhiteboard(-9.8, 3.2, 0.5);
+
+            // 3D Laser Scanner Setup on Table 1
+            createLaserScanner(-5.8, 1.1, 1.2);
+            createPhotogrammetryTurntable(-4.2, 1.1, 1.2);
+            createMicroscope(-3.0, 1.1, 1.0);
+
+            // --- 2. K3 SAFETY RACK & 3D PRINTER (BACK LEFT) ---
+            createSafetyRack(-2, 0, -5);
+            createStandalone3DPrinter(0.5, 0, -5);
+
+            // --- 3. COLLABORATION AREA (CENTER / RIGHT WORKSTATION) ---
+            createTable(1.5, 0, 1, 5, 2.2, deskMat, deskLegMat);
+            
+            // Dual Monitors & VR Headset
+            createWorkstation(0.5, 1.1, 1);
+            createWorkstation(2.5, 1.1, 1);
+
+            // Chairs
+            createChair(0.5, 0, 2.3);
+            createChair(2.5, 0, 2.3);
+
+            // Whiteboard 2 on back wall
+            createBackWhiteboard(1.8, 3.5, -6.9);
+
+            // --- 4. DIGITAL FABRICATION (BACK RIGHT CABINET & CNC) ---
+            createCabinetAndCNC(5, 0, -5);
+
+            // --- 5. SMART FARMING HYDROPONICS SYSTEM (RIGHT FOREGROUND) ---
+            createHydroponicsRack(6, 0, 2);
+
+            // Student Avatar representations (Simulated 3D shapes)
+            createAvatar(1.2, 0, 0.8, 0x1e293b); // Student sitting CAD
+            createAvatar(4.2, 0, 1.8, 0x334155); // Student standing near IoT
+        }
+
+        // --- HELPER CREATION FUNCTIONS ---
+        function createTable(x, y, z, width, depth, topMat, legMat) {
+            const topGeo = new THREE.BoxGeometry(width, 0.15, depth);
+            const top = new THREE.Mesh(topGeo, topMat);
+            top.position.set(x, y + 1.0, z);
+            top.castShadow = true;
+            top.receiveShadow = true;
+            scene.add(top);
+
+            const legGeo = new THREE.BoxGeometry(0.12, 1.0, 0.12);
+            const offsets = [
+                [-width/2 + 0.15, -depth/2 + 0.15],
+                [width/2 - 0.15, -depth/2 + 0.15],
+                [-width/2 + 0.15, depth/2 - 0.15],
+                [width/2 - 0.15, depth/2 - 0.15]
+            ];
+
+            offsets.forEach(([ox, oz]) => {
+                const leg = new THREE.Mesh(legGeo, legMat);
+                leg.position.set(x + ox, y + 0.5, z + oz);
+                leg.castShadow = true;
+                scene.add(leg);
+            });
+        }
+
+        function createWhiteboard(x, y, z) {
+            const boardGeo = new THREE.BoxGeometry(0.08, 2.2, 4.0);
+            const frameMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8 });
+            const board = new THREE.Mesh(boardGeo, frameMat);
+            board.position.set(x, y, z);
+
+            const innerGeo = new THREE.BoxGeometry(0.09, 2.0, 3.8);
+            const innerMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
+            const inner = new THREE.Mesh(innerGeo, innerMat);
+            inner.position.set(x, y, z);
+
+            scene.add(board);
+            scene.add(inner);
+        }
+
+        function createBackWhiteboard(x, y, z) {
+            const boardGeo = new THREE.BoxGeometry(3.0, 1.6, 0.08);
+            const frameMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8 });
+            const board = new THREE.Mesh(boardGeo, frameMat);
+            board.position.set(x, y, z);
+
+            const innerGeo = new THREE.BoxGeometry(2.8, 1.4, 0.09);
+            const innerMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
+            const inner = new THREE.Mesh(innerGeo, innerMat);
+            inner.position.set(x, y, z);
+
+            scene.add(board);
+            scene.add(inner);
+        }
+
+        function createLaserScanner(x, y, z) {
+            const base = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.1, 0.6), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+            base.position.set(x, y, z);
+            scene.add(base);
+
+            const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.8), new THREE.MeshStandardMaterial({ color: 0x0f172a }));
+            arm.position.set(x - 0.3, y + 0.4, z);
+            scene.add(arm);
+
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.25, 0.25), new THREE.MeshStandardMaterial({ color: 0x3b82f6 }));
+            head.position.set(x - 0.1, y + 0.8, z);
+            scene.add(head);
+        }
+
+        function createPhotogrammetryTurntable(x, y, z) {
+            const stage = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.1, 32), new THREE.MeshStandardMaterial({ color: 0x334155 }));
+            stage.position.set(x, y + 0.05, z);
+            scene.add(stage);
+
+            const sample = new THREE.Mesh(new THREE.DodecahedronGeometry(0.18), new THREE.MeshStandardMaterial({ color: 0x38bdf8, wireframe: true }));
+            sample.position.set(x, y + 0.28, z);
+            scene.add(sample);
+        }
+
+        function createMicroscope(x, y, z) {
+            const base = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.08, 0.4), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+            base.position.set(x, y, z);
+            scene.add(base);
+
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.5), new THREE.MeshStandardMaterial({ color: 0x0f172a }));
+            body.position.set(x, y + 0.25, z - 0.1);
+            scene.add(body);
+        }
+
+        function createSafetyRack(x, y, z) {
+            const frameMat = new THREE.MeshStandardMaterial({ color: 0x64748b });
+            const rack = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.2, 0.4), frameMat);
+            rack.position.set(x, y + 1.1, z);
+            scene.add(rack);
+
+            const vest1 = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.7, 0.05), new THREE.MeshStandardMaterial({ color: 0x84cc16 }));
+            vest1.position.set(x - 0.3, y + 1.2, z + 0.1);
+            scene.add(vest1);
+
+            const vest2 = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.7, 0.05), new THREE.MeshStandardMaterial({ color: 0xf97316 }));
+            vest2.position.set(x + 0.3, y + 1.2, z + 0.1);
+            scene.add(vest2);
+        }
+
+        function createStandalone3DPrinter(x, y, z) {
+            const frame = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.2, 0.9), new THREE.MeshStandardMaterial({ color: 0x1e293b, wireframe: false }));
+            frame.position.set(x, y + 1.1, z);
+            scene.add(frame);
+
+            const glass = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.9, 0.75), new THREE.MeshPhysicalMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.3 }));
+            glass.position.set(x, y + 1.1, z);
+            scene.add(glass);
+        }
+
+        function createWorkstation(x, y, z) {
+            const screen = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.55, 0.05), new THREE.MeshStandardMaterial({ color: 0x0f172a }));
+            screen.position.set(x, y + 0.45, z - 0.3);
+            scene.add(screen);
+
+            const display = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 0.5), new THREE.MeshBasicMaterial({ color: 0x0284c7 }));
+            display.position.set(x, y + 0.45, z - 0.27);
+            scene.add(display);
+        }
+
+        function createChair(x, y, z) {
+            const seat = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 0.5), new THREE.MeshStandardMaterial({ color: 0x78350f }));
+            seat.position.set(x, y + 0.5, z);
+            scene.add(seat);
+
+            const back = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.08), new THREE.MeshStandardMaterial({ color: 0x78350f }));
+            back.position.set(x, y + 0.8, z + 0.2);
+            scene.add(back);
+        }
+
+        function createCabinetAndCNC(x, y, z) {
+            const cabinet = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.5, 1.0), new THREE.MeshStandardMaterial({ color: 0x52525b, roughness: 0.5 }));
+            cabinet.position.set(x, y + 1.25, z);
+            scene.add(cabinet);
+        }
+
+        function createHydroponicsRack(x, y, z) {
+            const frame = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.2, 2.5), new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8 }));
+            frame.position.set(x, y + 1.1, z);
+            scene.add(frame);
+
+            for (let i = 0; i < 3; i++) {
+                const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 2.3), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+                pipe.rotation.x = Math.PI / 2;
+                pipe.position.set(x, y + 0.6 + i * 0.55, z);
+                scene.add(pipe);
+
+                const growLight = new THREE.PointLight(0xd8b4fe, 1.5, 2.5);
+                growLight.position.set(x, y + 0.85 + i * 0.55, z);
+                scene.add(growLight);
+            }
+        }
+
+        function createAvatar(x, y, z, colorHex) {
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 1.1), new THREE.MeshStandardMaterial({ color: colorHex }));
+            body.position.set(x, y + 0.85, z);
+            scene.add(body);
+
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 16), new THREE.MeshStandardMaterial({ color: 0xfde047 }));
+            head.position.set(x, y + 1.5, z);
+            scene.add(head);
+        }
+
+        function initLineCanvas() {
+            lineCanvas = document.getElementById('line-canvas');
+            lineCtx = lineCanvas.getContext('2d');
+            resizeCanvas();
+        }
+
+        function resizeCanvas() {
+            if (!lineCanvas) return;
+            lineCanvas.width = container.clientWidth;
+            lineCanvas.height = container.clientHeight;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            controls.update();
+            renderer.render(scene, camera);
+
+            updateHotspotPositionsAndLines();
+        }
+
+        function updateHotspotPositionsAndLines() {
+            if (!lineCtx) return;
+
+            lineCtx.clearRect(0, 0, lineCanvas.width, lineCanvas.height);
+
+            const widthHalf = container.clientWidth / 2;
+            const heightHalf = container.clientHeight / 2;
+
+            hotspots3D.forEach(item => {
+                const elem = document.getElementById(item.id);
+                if (!elem) return;
+
+                const tempV = item.pos.clone();
+                tempV.project(camera);
+
+                if (tempV.z > 1) {
+                    elem.style.opacity = '0';
+                    elem.style.pointerEvents = 'none';
+                    return;
+                }
+
+                elem.style.opacity = '1';
+                elem.style.pointerEvents = 'auto';
+
+                const x3d = (tempV.x * widthHalf) + widthHalf;
+                const y3d = -(tempV.y * heightHalf) + heightHalf;
+
+                const offsetX = -110;
+                const offsetY = -80;
+
+                const cardX = x3d + offsetX;
+                const cardY = y3d + offsetY;
+
+                elem.style.left = `${cardX}px`;
+                elem.style.top = `${cardY}px`;
+
+                const cardRect = elem.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+
+                const startX = (cardRect.left - containerRect.left) + cardRect.width * 0.85;
+                const startY = (cardRect.top - containerRect.top) + cardRect.height;
+
+                lineCtx.beginPath();
+                lineCtx.moveTo(startX, startY);
+                lineCtx.lineTo(x3d, y3d);
+                lineCtx.strokeStyle = '#f59e0b';
+                lineCtx.lineWidth = 2.5;
+                lineCtx.setLineDash([4, 3]);
+                lineCtx.stroke();
+
+                lineCtx.setLineDash([]);
+                lineCtx.beginPath();
+                lineCtx.arc(x3d, y3d, 5, 0, Math.PI * 2);
+                lineCtx.fillStyle = '#f59e0b';
+                lineCtx.fill();
+                lineCtx.lineWidth = 2;
+                lineCtx.strokeStyle = '#ffffff';
+                lineCtx.stroke();
+            });
+        }
+
+        function onWindowResize() {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            resizeCanvas();
+        }
+
+        // --- MODAL DIALOG CONTROLS ---
+        function openInfoModal(titleKey) {
+            const modal = document.getElementById('info-modal');
+            const card = document.getElementById('modal-card');
+            const data = modalContentData[titleKey] || {
+                icon: 'fa-circle-info',
+                desc: 'Informasi laboratorium STEM Makerspace.',
+                features: ['Komponen standar STEM']
+            };
+
+            document.getElementById('modal-title').textContent = titleKey;
+            document.getElementById('modal-description').textContent = data.desc;
+            
+            const iconElem = document.getElementById('modal-icon');
+            iconElem.className = `fa-solid ${data.icon}`;
+
+            const listElem = document.getElementById('modal-features');
+            listElem.innerHTML = '';
+            data.features.forEach(feat => {
+                const li = document.createElement('li');
+                li.textContent = feat;
+                listElem.appendChild(li);
+            });
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                card.classList.remove('scale-95');
+                card.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeInfoModal() {
+            const modal = document.getElementById('info-modal');
+            const card = document.getElementById('modal-card');
+
+            card.classList.remove('scale-100');
+            card.classList.add('scale-95');
+            modal.classList.add('opacity-0');
+
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 200);
+        }
+    </script>
+</body>
+</html>
